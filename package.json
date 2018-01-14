@@ -1,0 +1,27 @@
+{
+  "name": "splitter",
+  "version": "1.0.0",
+  "description": "Splitter Smart Contract - B9Lab Course Practice",
+  "main": "truffle.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "truffle test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/canepat/b9lab-splitter.git"
+  },
+  "keywords": [
+    "Ethereum",
+    "Solidity",
+    "B9Lab"
+  ],
+  "author": "Tullio Canepa",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/canepat/b9lab-splitter/issues"
+  },
+  "homepage": "https://github.com/canepat/b9lab-splitter#readme"
+}
