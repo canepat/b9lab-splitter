@@ -67,7 +67,7 @@ contract('Splitter', function(accounts) {
 
     let instance;
     beforeEach("should deploy a Splitter instance", function() {
-        return Splitter.new(payer, firstBeneficiary, secondBeneficiary, { from: owner, gas: MAX_GAS })
+        return Splitter.new(payer, { from: owner, gas: MAX_GAS })
             .then(function(_instance) {
                 instance = _instance;
             });
@@ -84,26 +84,6 @@ contract('Splitter', function(accounts) {
                 MAX_GAS
             );
         });
-        it("should fail if firstBeneficiary address is zero", function() {
-            this.slow(slowDuration);
-
-            return web3.eth.expectedExceptionPromise(
-                function() {
-                    return Splitter.new(payer, 0, secondBeneficiary, { from : owner, gas: MAX_GAS });
-                },
-                MAX_GAS
-            );
-        });
-        it("should fail if secondBeneficiary address is zero", function() {
-            this.slow(slowDuration);
-
-            return web3.eth.expectedExceptionPromise(
-                function() {
-                    return Splitter.new(payer, firstBeneficiary, 0, { from : owner, gas: MAX_GAS });
-                },
-                MAX_GAS
-            );
-        });
         it("should be owned by expected owner", function() {
             this.slow(slowDuration);
 
@@ -116,46 +96,138 @@ contract('Splitter', function(accounts) {
             return instance.payer()
                 .then(realPayer => assert.strictEqual(payer, realPayer, "provided payer not returned"));
         });
-        it("should return provided firstBeneficiary", function() {
-            this.slow(slowDuration);
-
-            return instance.firstBeneficiary()
-                .then(realFirstBeneficiary => assert.strictEqual(firstBeneficiary, realFirstBeneficiary,
-                    "provided firstBeneficiary not returned"));
-        });
-        it("should return provided secondBeneficiary", function() {
-            this.slow(slowDuration);
-
-            return instance.secondBeneficiary()
-                .then(realSecondBeneficiary => assert.strictEqual(secondBeneficiary, realSecondBeneficiary,
-                    "provided secondBeneficiary not returned"));
-        });
         it("should have emitted LogCreation event", function() {
             this.slow(slowDuration);
 
             return web3.eth.getTransactionReceiptMined(instance.transactionHash)
                 .then(function(receipt) {
-                    const EXPECTED_TOPIC_LENGTH = 4;
+                    const EXPECTED_TOPIC_LENGTH = 2;
                     assert.equal(receipt.logs.length, 1); // just 1 LogCreation event
 
                     const logEvent = receipt.logs[0];
-                    assert.equal(logEvent.topics[0], web3.sha3("LogCreation(address,address,address)"));
+                    assert.equal(logEvent.topics[0], web3.sha3("LogCreation(address)"));
                     assert.equal(logEvent.topics.length, EXPECTED_TOPIC_LENGTH);
 
                     const formattedEvent = instance.LogCreation().formatter(logEvent);
                     const name = formattedEvent.event;
                     const payerArg = formattedEvent.args.payer;
-                    const firstBeneficiaryArg = formattedEvent.args.firstBeneficiary;
-                    const secondBeneficiaryArg = formattedEvent.args.secondBeneficiary;
                     assert.equal(name, "LogCreation", "LogCreation name is wrong");
                     assert.equal(payerArg, payer, "LogCreation arg payer is wrong: " + payerArg);
-                    assert.equal(firstBeneficiaryArg, firstBeneficiary,
-                        "LogCreation arg firstBeneficiary is wrong: " + firstBeneficiaryArg);
-                    assert.equal(secondBeneficiaryArg, secondBeneficiary,
-                        "LogCreation arg secondBeneficiary is wrong: " + secondBeneficiaryArg);
                     assert.equal(Object.keys(formattedEvent.args).length + 1, EXPECTED_TOPIC_LENGTH);
                 });
+        });
+    });
 
+    describe("setPayer()", function() {
+        it("should fail if already closed", function() {
+            this.slow(slowDuration);
+
+            return instance.close({ from : owner, gas: MAX_GAS })
+                .then(txObj => web3.eth.getTransactionReceiptMined(txObj.tx))
+                .then(function() {
+                    return web3.eth.expectedExceptionPromise(
+                        function() {
+                            return instance.setPayer(firstBeneficiary, { from : owner, gas: MAX_GAS });
+                        },
+                        MAX_GAS
+                    );
+                });
+        });
+        it("should fail if called by not owner", function() {
+            this.slow(slowDuration);
+
+            return web3.eth.expectedExceptionPromise(
+                function() {
+                    return instance.setPayer(firstBeneficiary, { from : secondBeneficiary, gas: MAX_GAS });
+                },
+                MAX_GAS
+            );
+        });
+        it("should fail if new payer address is zero", function() {
+            this.slow(slowDuration);
+
+            return web3.eth.expectedExceptionPromise(
+                function() {
+                    return instance.setPayer(0, { from : owner, gas: MAX_GAS });
+                },
+                MAX_GAS
+            );
+        });
+        it("should fail if new payer is equal to current payer", function() {
+            this.slow(slowDuration);
+
+            return web3.eth.expectedExceptionPromise(
+                function() {
+                    return instance.setPayer(payer, { from : owner, gas: MAX_GAS });
+                },
+                MAX_GAS
+            );
+        });
+        it("should return provided payer", function() {
+            this.slow(slowDuration);
+
+            return web3.eth.expectedOkPromise(
+                function() {
+                    return instance.setPayer(firstBeneficiary, { from : owner, gas: MAX_GAS });
+                },
+                MAX_GAS
+            )
+            .then(() => instance.payer())
+            .then(newPayer => assert.strictEqual(newPayer, firstBeneficiary, "provided payer not stored"));
+        });
+        it("should have emitted LogPayerChanged event", function() {
+            this.slow(slowDuration);
+
+            return instance.setPayer(firstBeneficiary, { from : owner, gas: MAX_GAS })
+                .then(txObj => web3.eth.getTransactionReceiptMined(txObj.tx))
+                .then(function(receipt) {
+                    const EXPECTED_TOPIC_LENGTH = 2;
+                    assert.equal(receipt.logs.length, 1); // just 1 LogPayerChanged event
+
+                    const logEvent = receipt.logs[0];
+                    assert.equal(logEvent.topics[0], web3.sha3("LogPayerChanged(address)"));
+                    assert.equal(logEvent.topics.length, EXPECTED_TOPIC_LENGTH);
+
+                    const formattedEvent = instance.LogPayerChanged().formatter(logEvent);
+                    const name = formattedEvent.event;
+                    const newPayerArg = formattedEvent.args.newPayer;
+                    assert.equal(name, "LogPayerChanged", "LogPayerChanged name is wrong");
+                    assert.equal(newPayerArg, firstBeneficiary, "LogPayerChanged arg payer is wrong: " + newPayerArg);
+                    assert.equal(Object.keys(formattedEvent.args).length + 1, EXPECTED_TOPIC_LENGTH);
+                });
+        });
+    });
+
+    describe("split()", function() {
+        it("should fail if firstBeneficiary address is zero", function() {
+            this.slow(slowDuration);
+
+            return web3.eth.expectedExceptionPromise(
+                function() {
+                    return instance.split(0, secondBeneficiary, { from : owner, gas: MAX_GAS });
+                },
+                MAX_GAS
+            );
+        });
+        it("should fail if secondBeneficiary address is zero", function() {
+            this.slow(slowDuration);
+
+            return web3.eth.expectedExceptionPromise(
+                function() {
+                    return instance.split(firstBeneficiary, 0, { from : owner, gas: MAX_GAS });
+                },
+                MAX_GAS
+            );
+        });
+        it("should fail if sender is not payer", function() {
+            this.slow(slowDuration);
+
+            return web3.eth.expectedExceptionPromise(
+                function() {
+                    return instance.split(firstBeneficiary, 0, { from : owner, gas: MAX_GAS });
+                },
+                MAX_GAS
+            );
         });
     });
 });
