@@ -204,7 +204,7 @@ contract('Splitter', function(accounts) {
 
             return web3.eth.expectedExceptionPromise(
                 function() {
-                    return instance.split(0, secondBeneficiary, { from : owner, gas: MAX_GAS });
+                    return instance.split(0, secondBeneficiary, { from : payer, gas: MAX_GAS });
                 },
                 MAX_GAS
             );
@@ -214,7 +214,7 @@ contract('Splitter', function(accounts) {
 
             return web3.eth.expectedExceptionPromise(
                 function() {
-                    return instance.split(firstBeneficiary, 0, { from : owner, gas: MAX_GAS });
+                    return instance.split(firstBeneficiary, 0, { from : payer, gas: MAX_GAS });
                 },
                 MAX_GAS
             );
@@ -228,6 +228,42 @@ contract('Splitter', function(accounts) {
                 },
                 MAX_GAS
             );
+        });
+        it("should fail if amount is zero", function() {
+            this.slow(slowDuration);
+
+            return web3.eth.expectedExceptionPromise(
+                function() {
+                    return instance.split(firstBeneficiary, secondBeneficiary, { from : payer, gas: MAX_GAS, value: 0 });
+                },
+                MAX_GAS
+            );
+        });
+        it("should split amount between beneficiaries", function() {
+            this.slow(slowDuration);
+
+            const amount = web3.toWei(0.9, 'ether');
+            const firstHalf = amount / 2;
+            const secondHalf = amount - firstHalf;
+
+            return web3.eth.expectedOkPromise(
+                function() {
+                    return instance.split(firstBeneficiary, secondBeneficiary, { from : payer, gas: MAX_GAS, value: amount });
+                },
+                MAX_GAS
+            )
+            .then(() => instance.balances(payer))
+            .then(payerBalance => {
+                assert.equal(payerBalance, amount, "payer balance not equal to amount");
+                return instance.balances(firstBeneficiary);
+            })
+            .then(firstBeneficiaryBalance => {
+                assert.equal(firstBeneficiaryBalance, firstHalf, "firstBeneficiary balance is wrong");
+                return instance.balances(secondBeneficiary);
+            })
+            .then(secondBeneficiaryBalance => {
+                assert.equal(secondBeneficiaryBalance, secondHalf, "secondBeneficiary balance is wrong");
+            });
         });
     });
 });
