@@ -4,7 +4,7 @@ contract Splitter {
     event LogCreation(address indexed payer);
     event LogPayerChanged(address indexed newPayer);
     event LogClosed();
-    event LogSplitted(uint256 indexed amount, uint256 indexed firstHalf, uint256 indexed secondHalf);
+    event LogSplitted(address indexed first, address indexed second, uint256 indexed amount);
     event LogWithdraw(address indexed beneficiary, uint256 indexed amount);
     event LogDeposit(address indexed sender, uint256 indexed amount);
 
@@ -54,21 +54,20 @@ contract Splitter {
         require(msg.sender == payer);
         require(msg.value != 0);
 
-        uint256 firstHalf = msg.value / 2;
-        uint256 secondHalf = msg.value - firstHalf;
+        uint256 half = (msg.value - (msg.value % 2)) / 2;
 
-        balances[msg.sender] = msg.value;
-        balances[firstBeneficiary] = firstHalf;
-        balances[secondBeneficiary] = secondHalf;
+        balances[msg.sender] += msg.value % 2;
+        balances[firstBeneficiary] += half;
+        balances[secondBeneficiary] += half;
 
-        LogSplitted(msg.value, firstHalf, secondHalf);
+        LogSplitted(firstBeneficiary, secondBeneficiary, half);
     }
 
     function withdraw() public notClosed {
+        require(balances[msg.sender] != 0);
+
         uint256 amount = balances[msg.sender];
-        
-        require(amount != 0);
-        
+
         balances[msg.sender] = 0;
         
         msg.sender.transfer(amount);
@@ -77,8 +76,6 @@ contract Splitter {
     }
 
     function () public notClosed payable {
-        require(msg.sender != payer);
-
         LogDeposit(msg.sender, msg.value);
     }
 }

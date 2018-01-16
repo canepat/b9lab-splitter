@@ -13,3 +13,14 @@ You will create a smart contract named Splitter whereby:
 * add a kill switch to the whole contract
 * make the contract a utility that can be used by David, Emma and anybody with an address
 * cover potentially bad input data
+
+### Implementation:
+The following implementation choices has been made not explicitly required by spec:
+* explicit check on payer for splitting, no one else can call split
+* withdraw pattern for splitted payments
+* free contribution with fallback function also for payer
+
+### Limitations:
+The following limitations currently apply:
+* no check for arithmetic overflow
+* no web page
