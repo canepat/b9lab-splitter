@@ -32,7 +32,7 @@ contract('Splitter', function(accounts) {
     const MAX_GAS = 2000000;
     const TESTRPC_SLOW_DURATION = 1000;
     const GETH_SLOW_DURATION = 15000;
-    const AMOUNT = web3.toWei(0.9, 'ether');
+    const AMOUNT = web3.toWei(0.009, 'ether');
 
     let isTestRPC, isGeth, slowDuration;
     before("should identify node", function() {
@@ -80,7 +80,7 @@ contract('Splitter', function(accounts) {
 
             return web3.eth.expectedExceptionPromise(
                 function() {
-                    return Splitter.new(0, beneficiary1, beneficiary2, { from: owner, gas: MAX_GAS });
+                    return Splitter.new(0, { from: owner, gas: MAX_GAS });
                 },
                 MAX_GAS
             );
@@ -102,29 +102,30 @@ contract('Splitter', function(accounts) {
 
             return web3.eth.getTransactionReceiptMined(instance.transactionHash)
                 .then(function(receipt) {
-                    const EXPECTED_TOPIC_LENGTH = 2;
+                    const EXPECTED_TOPIC_LENGTH = 3;
                     assert.equal(receipt.logs.length, 1); // just 1 LogCreation event
 
                     const logEvent = receipt.logs[0];
-                    assert.equal(logEvent.topics[0], web3.sha3("LogCreation(address)"));
+                    assert.equal(logEvent.topics[0], web3.sha3("LogCreation(address,address)"));
                     assert.equal(logEvent.topics.length, EXPECTED_TOPIC_LENGTH);
 
                     const formattedEvent = instance.LogCreation().formatter(logEvent);
                     const name = formattedEvent.event;
+                    const ownerArg = formattedEvent.args.owner;
                     const payerArg = formattedEvent.args.payer;
                     assert.equal(name, "LogCreation", "LogCreation name is wrong");
+                    assert.equal(ownerArg, owner, "LogCreation arg owner is wrong: " + ownerArg);
                     assert.equal(payerArg, payer, "LogCreation arg payer is wrong: " + payerArg);
                     assert.equal(Object.keys(formattedEvent.args).length + 1, EXPECTED_TOPIC_LENGTH);
                 });
         });
     });
 
-    describe("setPayer()", function() {
+    describe("#setPayer()", function() {
         it("should fail if already closed", function() {
             this.slow(slowDuration);
 
             return instance.close({ from : owner, gas: MAX_GAS })
-                .then(txObj => web3.eth.getTransactionReceiptMined(txObj.tx))
                 .then(function() {
                     return web3.eth.expectedExceptionPromise(
                         function() {
@@ -180,8 +181,9 @@ contract('Splitter', function(accounts) {
             this.slow(slowDuration);
 
             return instance.setPayer(beneficiary1, { from: owner, gas: MAX_GAS })
-                .then(txObj => web3.eth.getTransactionReceiptMined(txObj.tx))
-                .then(function(receipt) {
+                .then(txObj => {
+                    const receipt = txObj.receipt;
+
                     const EXPECTED_TOPIC_LENGTH = 2;
                     assert.equal(receipt.logs.length, 1); // just 1 LogPayerChanged event
 
@@ -199,12 +201,11 @@ contract('Splitter', function(accounts) {
         });
     });
 
-    describe("close()", function() {
+    describe("#close()", function() {
         it("should fail if already closed", function() {
             this.slow(slowDuration);
 
             return instance.close({ from : owner, gas: MAX_GAS })
-                .then(txObj => web3.eth.getTransactionReceiptMined(txObj.tx))
                 .then(function() {
                     return web3.eth.expectedExceptionPromise(
                         function() {
@@ -240,30 +241,32 @@ contract('Splitter', function(accounts) {
             this.slow(slowDuration);
 
             return instance.close({ from : owner, gas: MAX_GAS })
-                .then(txObj => web3.eth.getTransactionReceiptMined(txObj.tx))
-                .then(function(receipt) {
-                    const EXPECTED_TOPIC_LENGTH = 1;
+                .then(txObj => {
+                    const receipt = txObj.receipt;
+
+                    const EXPECTED_TOPIC_LENGTH = 2;
                     assert.equal(receipt.logs.length, 1); // just 1 LogClosed event
 
                     const logEvent = receipt.logs[0];
-                    assert.equal(logEvent.topics[0], web3.sha3("LogClosed()"));
+                    assert.equal(logEvent.topics[0], web3.sha3("LogClosed(address)"));
                     assert.equal(logEvent.topics.length, EXPECTED_TOPIC_LENGTH);
 
-                    const EXPECTED_ARG_LENGTH = 0;
+                    const EXPECTED_ARG_LENGTH = 1;
                     const formattedEvent = instance.LogClosed().formatter(logEvent);
                     const name = formattedEvent.event;
+                    const callerArg = formattedEvent.args.caller;
                     assert.equal(name, "LogClosed", "LogClosed name is wrong");
+                    assert.equal(callerArg, owner, "LogClosed arg caller is wrong: " + callerArg);
                     assert.equal(Object.keys(formattedEvent.args).length, EXPECTED_ARG_LENGTH);
                 });
         });
     });
 
-    describe("split()", function() {
+    describe("#split()", function() {
         it("should fail if already closed", function() {
             this.slow(slowDuration);
 
             return instance.close({ from : owner, gas: MAX_GAS })
-                .then(txObj => web3.eth.getTransactionReceiptMined(txObj.tx))
                 .then(function() {
                     return web3.eth.expectedExceptionPromise(
                         function() {
@@ -278,7 +281,7 @@ contract('Splitter', function(accounts) {
 
             return web3.eth.expectedExceptionPromise(
                 function() {
-                    return instance.split(0, beneficiary2, { from: payer, gas: MAX_GAS });
+                    return instance.split(0, beneficiary2, { from: payer, gas: MAX_GAS, value: 2*AMOUNT });
                 },
                 MAX_GAS
             );
@@ -343,8 +346,9 @@ contract('Splitter', function(accounts) {
             this.slow(slowDuration);
 
             return instance.split(beneficiary1, beneficiary2, { from: payer, gas: MAX_GAS, value: 2*AMOUNT })
-                .then(txObj => web3.eth.getTransactionReceiptMined(txObj.tx))
-                .then(function(receipt) {
+                .then(txObj => {
+                    const receipt = txObj.receipt;
+
                     const EXPECTED_TOPIC_LENGTH = 4;
                     assert.equal(receipt.logs.length, 1); // just 1 LogSplitted event
 
@@ -367,14 +371,12 @@ contract('Splitter', function(accounts) {
         });
     });
 
-    describe("withdraw()", function() {
+    describe("#withdraw()", function() {
         it("should fail if already closed", function() {
             this.slow(slowDuration);
 
             return instance.split(beneficiary1, beneficiary2, { from: payer, gas: MAX_GAS, value: 2*AMOUNT })
-                .then(txObj => web3.eth.getTransactionReceiptMined(txObj.tx))
                 .then(() => instance.close({ from: owner, gas: MAX_GAS }))
-                .then(txObj => web3.eth.getTransactionReceiptMined(txObj.tx))
                 .then(function() {
                     return web3.eth.expectedExceptionPromise(
                         function() {
@@ -402,50 +404,44 @@ contract('Splitter', function(accounts) {
             this.slow(slowDuration);
 
             return instance.split(beneficiary1, beneficiary2, { from: payer, gas: MAX_GAS, value: 2*AMOUNT })
-                .then(txObj => web3.eth.getTransactionReceiptMined(txObj.tx))
                 .then(() => instance.withdraw({ from: beneficiary1, gas: MAX_GAS }))
-                .then(txObj => web3.eth.getTransactionReceiptMined(txObj.tx))
                 .then(() => instance.balances(beneficiary1))
                 .then(balance1 => assert.equal(balance1, 0, "beneficiary1 balance not zero"))
                 .then(() => instance.withdraw({ from: beneficiary2, gas: MAX_GAS }))
-                .then(txObj => web3.eth.getTransactionReceiptMined(txObj.tx))
                 .then(() => instance.balances(beneficiary2))
                 .then(balance2 => assert.equal(balance2, 0, "beneficiary2 balance not zero"));
         });
         it("should increase caller balance", function() {
             this.slow(slowDuration);
 
-            let balance1Before, balance2Before, gasPrice, withdraw1TxCost, withdraw2TxCost;
+            let balance1Before, balance2Before, txObj, gasPrice, withdraw1TxCost, withdraw2TxCost;
             return instance.split(beneficiary1, beneficiary2, { from: payer, gas: MAX_GAS, value: 2*AMOUNT })
-                .then(txObj => web3.eth.getTransactionReceiptMined(txObj.tx))
-                
                 .then(() => web3.eth.getBalancePromise(beneficiary1))
                 .then(balance1 => balance1Before = balance1)
                 .then(() => instance.withdraw({ from: beneficiary1, gas: MAX_GAS }))
-                .then(txObj => web3.eth.getTransaction(txObj.tx))
+                .then(_txObj => {
+                    txObj = _txObj;
+                    return web3.eth.getTransactionPromise(txObj.tx);
+                })
                 .then(tx => {
                     gasPrice = tx.gasPrice;
-                    return web3.eth.getTransactionReceiptMined(tx.hash);
-                })
-                .then(receipt => {
-                    withdraw1TxCost = gasPrice * receipt.gasUsed;
+                    withdraw1TxCost = gasPrice * txObj.receipt.gasUsed;
                     return web3.eth.getBalancePromise(beneficiary1);
                 })
                 .then(balance1 => {
                     const balance1Diff = balance1.minus(balance1Before).plus(withdraw1TxCost);
                     assert.equal(balance1Diff, AMOUNT, "beneficiary1 balance not increased")
                 })
-
                 .then(() => web3.eth.getBalancePromise(beneficiary2))
                 .then(balance2 => balance2Before = balance2)
                 .then(() => instance.withdraw({ from: beneficiary2, gas: MAX_GAS }))
-                .then(txObj => web3.eth.getTransaction(txObj.tx))
+                .then(_txObj => {
+                    txObj = _txObj;
+                    return web3.eth.getTransactionPromise(txObj.tx);
+                })
                 .then(tx => {
                     gasPrice = tx.gasPrice;
-                    return web3.eth.getTransactionReceiptMined(tx.hash);
-                })
-                .then(receipt => {
-                    withdraw2TxCost = gasPrice * receipt.gasUsed;
+                    withdraw2TxCost = gasPrice * txObj.receipt.gasUsed;
                     return web3.eth.getBalancePromise(beneficiary2);
                 })
                 .then(balance2 => {
@@ -457,10 +453,10 @@ contract('Splitter', function(accounts) {
             this.slow(slowDuration);
 
             return instance.split(beneficiary1, beneficiary2, { from: payer, gas: MAX_GAS, value: 2*AMOUNT })
-                .then(txObj => web3.eth.getTransactionReceiptMined(txObj.tx))
                 .then(() => instance.withdraw({ from: beneficiary1, gas: MAX_GAS }))
-                .then(txObj => web3.eth.getTransactionReceiptMined(txObj.tx))
-                .then(function(receipt) {
+                .then(txObj => {
+                    const receipt = txObj.receipt;
+
                     const EXPECTED_TOPIC_LENGTH = 3;
                     assert.equal(receipt.logs.length, 1); // just 1 LogWithdraw event
 
@@ -478,6 +474,19 @@ contract('Splitter', function(accounts) {
                     assert.equal(amountArg, AMOUNT, "LogWithdraw arg amount is wrong: " + amountArg);
                     assert.equal(Object.keys(formattedEvent.args).length, EXPECTED_ARG_LENGTH);
                 });
+        });
+    });
+
+    describe("#()", function() {
+        it("should fail whenever is called", function() {
+            this.slow(slowDuration);
+
+            return web3.eth.expectedExceptionPromise(
+                function() {
+                    return instance.sendTransaction({ from: payer, gas: MAX_GAS, value: 2*AMOUNT });
+                },
+                MAX_GAS
+            );
         });
     });
 });

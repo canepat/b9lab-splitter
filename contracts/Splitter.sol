@@ -1,9 +1,9 @@
 pragma solidity ^0.4.13;
 
 contract Splitter {
-    event LogCreation(address indexed payer);
+    event LogCreation(address indexed owner, address indexed payer);
     event LogPayerChanged(address indexed newPayer);
-    event LogClosed();
+    event LogClosed(address indexed caller);
     event LogSplitted(address indexed first, address indexed second, uint256 indexed amount);
     event LogWithdraw(address indexed beneficiary, uint256 indexed amount);
     event LogDeposit(address indexed sender, uint256 indexed amount);
@@ -30,7 +30,7 @@ contract Splitter {
 
         owner = msg.sender;
 
-        LogCreation(payer);
+        LogCreation(msg.sender, _payer);
     }
 
     function setPayer(address _payer) public notClosed onlyOwner {
@@ -39,13 +39,13 @@ contract Splitter {
 
         payer = _payer;
 
-        LogPayerChanged(payer);
+        LogPayerChanged(_payer);
     }
 
     function close() public notClosed onlyOwner {
         closed = true;
 
-        LogClosed();
+        LogClosed(msg.sender);
     }
 
     function split(address firstBeneficiary, address secondBeneficiary) public notClosed payable {
@@ -54,9 +54,11 @@ contract Splitter {
         require(msg.sender == payer);
         require(msg.value != 0);
 
-        uint256 half = (msg.value - (msg.value % 2)) / 2;
+        uint256 remainder = msg.value % 2;
 
-        balances[msg.sender] += msg.value % 2;
+        uint256 half = (msg.value - remainder) / 2;
+
+        balances[msg.sender] += remainder;
         balances[firstBeneficiary] += half;
         balances[secondBeneficiary] += half;
 
@@ -75,7 +77,7 @@ contract Splitter {
         LogWithdraw(msg.sender, amount);   
     }
 
-    function () public notClosed payable {
-        LogDeposit(msg.sender, msg.value);
+    function () public payable {
+        revert();
     }
 }
