@@ -68,134 +68,36 @@ contract('Splitter', function(accounts) {
 
     let instance;
     beforeEach("should deploy a Splitter instance", function() {
-        return Splitter.new(payer, { from: owner, gas: MAX_GAS })
+        return Splitter.new({ from: owner, gas: MAX_GAS })
             .then(function(_instance) {
                 instance = _instance;
             });
     });
 
     describe("#Splitter()", function() {
-        it("should fail if payer address is zero", function() {
-            this.slow(slowDuration);
-
-            return web3.eth.expectedExceptionPromise(
-                function() {
-                    return Splitter.new(0, { from: owner, gas: MAX_GAS });
-                },
-                MAX_GAS
-            );
-        });
         it("should be owned by expected owner", function() {
             this.slow(slowDuration);
 
             return instance.owner()
                 .then(realOwner => assert.strictEqual(owner, realOwner, "not owned by expected owner"));
         });
-        it("should return provided payer", function() {
-            this.slow(slowDuration);
-
-            return instance.payer()
-                .then(realPayer => assert.strictEqual(payer, realPayer, "provided payer not returned"));
-        });
         it("should have emitted LogCreation event", function() {
             this.slow(slowDuration);
 
             return web3.eth.getTransactionReceiptMined(instance.transactionHash)
                 .then(function(receipt) {
-                    const EXPECTED_TOPIC_LENGTH = 3;
+                    const EXPECTED_TOPIC_LENGTH = 2;
                     assert.equal(receipt.logs.length, 1); // just 1 LogCreation event
 
                     const logEvent = receipt.logs[0];
-                    assert.equal(logEvent.topics[0], web3.sha3("LogCreation(address,address)"));
+                    assert.equal(logEvent.topics[0], web3.sha3("LogCreation(address)"));
                     assert.equal(logEvent.topics.length, EXPECTED_TOPIC_LENGTH);
 
                     const formattedEvent = instance.LogCreation().formatter(logEvent);
                     const name = formattedEvent.event;
                     const ownerArg = formattedEvent.args.owner;
-                    const payerArg = formattedEvent.args.payer;
                     assert.equal(name, "LogCreation", "LogCreation name is wrong");
                     assert.equal(ownerArg, owner, "LogCreation arg owner is wrong: " + ownerArg);
-                    assert.equal(payerArg, payer, "LogCreation arg payer is wrong: " + payerArg);
-                    assert.equal(Object.keys(formattedEvent.args).length + 1, EXPECTED_TOPIC_LENGTH);
-                });
-        });
-    });
-
-    describe("#setPayer()", function() {
-        it("should fail if already closed", function() {
-            this.slow(slowDuration);
-
-            return instance.close({ from : owner, gas: MAX_GAS })
-                .then(function() {
-                    return web3.eth.expectedExceptionPromise(
-                        function() {
-                            return instance.setPayer(beneficiary1, { from: owner, gas: MAX_GAS });
-                        },
-                        MAX_GAS
-                    );
-                });
-        });
-        it("should fail if called by not owner", function() {
-            this.slow(slowDuration);
-
-            return web3.eth.expectedExceptionPromise(
-                function() {
-                    return instance.setPayer(beneficiary1, { from: beneficiary2, gas: MAX_GAS });
-                },
-                MAX_GAS
-            );
-        });
-        it("should fail if new payer address is zero", function() {
-            this.slow(slowDuration);
-
-            return web3.eth.expectedExceptionPromise(
-                function() {
-                    return instance.setPayer(0, { from: owner, gas: MAX_GAS });
-                },
-                MAX_GAS
-            );
-        });
-        it("should fail if new payer is equal to current payer", function() {
-            this.slow(slowDuration);
-
-            return web3.eth.expectedExceptionPromise(
-                function() {
-                    return instance.setPayer(payer, { from: owner, gas: MAX_GAS });
-                },
-                MAX_GAS
-            );
-        });
-        it("should return provided payer", function() {
-            this.slow(slowDuration);
-
-            return web3.eth.expectedOkPromise(
-                function() {
-                    return instance.setPayer(beneficiary1, { from: owner, gas: MAX_GAS });
-                },
-                MAX_GAS
-            )
-            .then(() => instance.payer())
-            .then(newPayer => assert.strictEqual(newPayer, beneficiary1, "provided payer not stored"));
-        });
-        it("should have emitted LogPayerChanged event", function() {
-            this.slow(slowDuration);
-
-            return instance.setPayer(beneficiary1, { from: owner, gas: MAX_GAS })
-                .then(txObj => {
-                    const receipt = txObj.receipt;
-
-                    const EXPECTED_TOPIC_LENGTH = 2;
-                    assert.equal(receipt.logs.length, 1); // just 1 LogPayerChanged event
-
-                    const logEvent = receipt.logs[0];
-                    assert.equal(logEvent.topics[0], web3.sha3("LogPayerChanged(address)"));
-                    assert.equal(logEvent.topics.length, EXPECTED_TOPIC_LENGTH);
-
-                    const formattedEvent = instance.LogPayerChanged().formatter(logEvent);
-                    const name = formattedEvent.event;
-                    const newPayerArg = formattedEvent.args.newPayer;
-                    assert.equal(name, "LogPayerChanged", "LogPayerChanged name is wrong");
-                    assert.equal(newPayerArg, beneficiary1, "LogPayerChanged arg payer is wrong: " + newPayerArg);
                     assert.equal(Object.keys(formattedEvent.args).length + 1, EXPECTED_TOPIC_LENGTH);
                 });
         });
@@ -242,22 +144,25 @@ contract('Splitter', function(accounts) {
 
             return instance.close({ from : owner, gas: MAX_GAS })
                 .then(txObj => {
-                    const receipt = txObj.receipt;
-
-                    const EXPECTED_TOPIC_LENGTH = 2;
-                    assert.equal(receipt.logs.length, 1); // just 1 LogClosed event
-
-                    const logEvent = receipt.logs[0];
-                    assert.equal(logEvent.topics[0], web3.sha3("LogClosed(address)"));
-                    assert.equal(logEvent.topics.length, EXPECTED_TOPIC_LENGTH);
+                    assert.isAtMost(txObj.logs.length, txObj.receipt.logs.length);
+                    assert.equal(txObj.logs.length, 1); // just 1 LogClosed event
+                    assert.equal(txObj.receipt.logs.length, 1); // just 1 LogClosed event
 
                     const EXPECTED_ARG_LENGTH = 1;
-                    const formattedEvent = instance.LogClosed().formatter(logEvent);
-                    const name = formattedEvent.event;
-                    const callerArg = formattedEvent.args.caller;
-                    assert.equal(name, "LogClosed", "LogClosed name is wrong");
+                    const txLogEvent = txObj.logs[0];
+                    const eventName = txLogEvent.event;
+                    const callerArg = txLogEvent.args.caller;
+                    assert.equal(eventName, "LogClosed", "LogClosed name is wrong");
                     assert.equal(callerArg, owner, "LogClosed arg caller is wrong: " + callerArg);
-                    assert.equal(Object.keys(formattedEvent.args).length, EXPECTED_ARG_LENGTH);
+                    assert.equal(Object.keys(txLogEvent.args).length, EXPECTED_ARG_LENGTH);
+
+                    const EXPECTED_TOPIC_LENGTH = 2;
+                    const receiptRawLogEvent = txObj.receipt.logs[0];
+                    assert.equal(receiptRawLogEvent.topics[0], web3.sha3("LogClosed(address)"));
+                    assert.equal(receiptRawLogEvent.topics.length, EXPECTED_TOPIC_LENGTH);
+
+                    const receiptLogEvent = instance.LogClosed().formatter(receiptRawLogEvent);
+                    assert.deepEqual(receiptLogEvent, txLogEvent, "LogClosed receipt event is different from tx event");
                 });
         });
     });
@@ -296,16 +201,6 @@ contract('Splitter', function(accounts) {
                 MAX_GAS
             );
         });
-        it("should fail if sender is not payer", function() {
-            this.slow(slowDuration);
-
-            return web3.eth.expectedExceptionPromise(
-                function() {
-                    return instance.split(beneficiary1, 0, { from: owner, gas: MAX_GAS });
-                },
-                MAX_GAS
-            );
-        });
         it("should fail if amount is zero", function() {
             this.slow(slowDuration);
 
@@ -320,7 +215,8 @@ contract('Splitter', function(accounts) {
             it(`should split ${weiAmount} WEI between beneficiaries`, function() {
                 this.slow(slowDuration);
 
-                const half = (weiAmount - (weiAmount % 2)) / 2;
+                const remainder = weiAmount % 2;
+                const half = (weiAmount - remainder) / 2;
 
                 return web3.eth.expectedOkPromise(
                     function() {
@@ -330,7 +226,7 @@ contract('Splitter', function(accounts) {
                 )
                 .then(() => instance.balances(payer))
                 .then(payerBalance => {
-                    assert.equal(payerBalance, weiAmount % 2, "payer balance not equal to amount");
+                    assert.equal(payerBalance, remainder, "payer balance not equal to amount");
                     return instance.balances(beneficiary1);
                 })
                 .then(beneficiary1Balance => {
@@ -347,26 +243,28 @@ contract('Splitter', function(accounts) {
 
             return instance.split(beneficiary1, beneficiary2, { from: payer, gas: MAX_GAS, value: 2*AMOUNT })
                 .then(txObj => {
-                    const receipt = txObj.receipt;
-
-                    const EXPECTED_TOPIC_LENGTH = 4;
-                    assert.equal(receipt.logs.length, 1); // just 1 LogSplitted event
-
-                    const logEvent = receipt.logs[0];
-                    assert.equal(logEvent.topics[0], web3.sha3("LogSplitted(address,address,uint256)"));
-                    assert.equal(logEvent.topics.length, EXPECTED_TOPIC_LENGTH);
+                    assert.isAtMost(txObj.logs.length, txObj.receipt.logs.length);
+                    assert.equal(txObj.logs.length, 1); // just 1 LogSplitted event
+                    assert.equal(txObj.receipt.logs.length, 1); // just 1 LogSplitted event
 
                     const EXPECTED_ARG_LENGTH = 3;
-                    const formattedEvent = instance.LogSplitted().formatter(logEvent);
-                    const name = formattedEvent.event;
-                    const firstArg = formattedEvent.args.first;
-                    const secondArg = formattedEvent.args.second;
-                    const amountArg = formattedEvent.args.amount;
-                    assert.equal(name, "LogSplitted", "LogSplitted name is wrong");
-                    assert.equal(firstArg, beneficiary1, "LogSplitted arg first is wrong: " + firstArg);
-                    assert.equal(secondArg, beneficiary2, "LogSplitted arg second is wrong: " + secondArg);
-                    assert.equal(amountArg, AMOUNT, "LogSplitted arg amount is wrong: " + amountArg);
-                    assert.equal(Object.keys(formattedEvent.args).length, EXPECTED_ARG_LENGTH);
+                    const txLogEvent = txObj.logs[0];
+                    const eventName = txLogEvent.event;
+                    const first = txLogEvent.args.first;
+                    const second = txLogEvent.args.second;
+                    const amount = txLogEvent.args.amount;
+                    assert.equal(eventName, "LogSplitted", "LogSplitted event name is wrong");
+                    assert.equal(first, beneficiary1, "LogSplitted arg first is wrong: " + first);
+                    assert.equal(second, beneficiary2, "LogSplitted arg second is wrong: " + second);
+                    assert.equal(amount, AMOUNT, "LogSplitted arg amount is wrong: " + amount);
+
+                    const EXPECTED_TOPIC_LENGTH = 4;
+                    const receiptRawLogEvent = txObj.receipt.logs[0];
+                    assert.equal(receiptRawLogEvent.topics[0], web3.sha3("LogSplitted(address,address,uint256)"));
+                    assert.equal(receiptRawLogEvent.topics.length, EXPECTED_TOPIC_LENGTH);
+
+                    const receiptLogEvent = instance.LogSplitted().formatter(receiptRawLogEvent);
+                    assert.deepEqual(receiptLogEvent, txLogEvent, "LogSplitted receipt event is different from tx event");
                 });
         });
     });
@@ -455,24 +353,27 @@ contract('Splitter', function(accounts) {
             return instance.split(beneficiary1, beneficiary2, { from: payer, gas: MAX_GAS, value: 2*AMOUNT })
                 .then(() => instance.withdraw({ from: beneficiary1, gas: MAX_GAS }))
                 .then(txObj => {
-                    const receipt = txObj.receipt;
-
-                    const EXPECTED_TOPIC_LENGTH = 3;
-                    assert.equal(receipt.logs.length, 1); // just 1 LogWithdraw event
-
-                    const logEvent = receipt.logs[0];
-                    assert.equal(logEvent.topics[0], web3.sha3("LogWithdraw(address,uint256)"));
-                    assert.equal(logEvent.topics.length, EXPECTED_TOPIC_LENGTH);
+                    assert.isAtMost(txObj.logs.length, txObj.receipt.logs.length);
+                    assert.equal(txObj.logs.length, 1); // just 1 LogWithdraw event
+                    assert.equal(txObj.receipt.logs.length, 1); // just 1 LogWithdraw event
 
                     const EXPECTED_ARG_LENGTH = 2;
-                    const formattedEvent = instance.LogWithdraw().formatter(logEvent);
-                    const name = formattedEvent.event;
-                    const beneficiaryArg = formattedEvent.args.beneficiary;
-                    const amountArg = formattedEvent.args.amount;
-                    assert.equal(name, "LogWithdraw", "LogWithdraw name is wrong");
+                    const txLogEvent = txObj.logs[0];
+                    const eventName = txLogEvent.event;
+                    const beneficiaryArg = txLogEvent.args.beneficiary;
+                    const amountArg = txLogEvent.args.amount;
+                    assert.equal(eventName, "LogWithdraw", "LogWithdraw name is wrong");
                     assert.equal(beneficiaryArg, beneficiary1, "LogWithdraw arg beneficiary is wrong: " + beneficiaryArg);
                     assert.equal(amountArg, AMOUNT, "LogWithdraw arg amount is wrong: " + amountArg);
-                    assert.equal(Object.keys(formattedEvent.args).length, EXPECTED_ARG_LENGTH);
+                    assert.equal(Object.keys(txLogEvent.args).length, EXPECTED_ARG_LENGTH);
+
+                    const EXPECTED_TOPIC_LENGTH = 3;
+                    const receiptRawLogEvent = txObj.receipt.logs[0];
+                    assert.equal(receiptRawLogEvent.topics[0], web3.sha3("LogWithdraw(address,uint256)"));
+                    assert.equal(receiptRawLogEvent.topics.length, EXPECTED_TOPIC_LENGTH);
+
+                    const receiptLogEvent = instance.LogWithdraw().formatter(receiptRawLogEvent);
+                    assert.deepEqual(receiptLogEvent, txLogEvent, "LogWithdraw receipt event is different from tx event");
                 });
         });
     });

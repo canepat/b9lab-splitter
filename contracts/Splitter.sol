@@ -1,8 +1,7 @@
 pragma solidity ^0.4.13;
 
 contract Splitter {
-    event LogCreation(address indexed owner, address indexed payer);
-    event LogPayerChanged(address indexed newPayer);
+    event LogCreation(address indexed owner);
     event LogClosed(address indexed caller);
     event LogSplitted(address indexed first, address indexed second, uint256 indexed amount);
     event LogWithdraw(address indexed beneficiary, uint256 indexed amount);
@@ -10,7 +9,6 @@ contract Splitter {
 
     address public owner;
     mapping(address => uint256) public balances;
-    address public payer;
     bool public closed;
 
     modifier onlyOwner {
@@ -23,23 +21,10 @@ contract Splitter {
         _;
     }
 
-    function Splitter(address _payer) {
-        require(_payer != address(0));
-
-        payer = _payer;
-
+    function Splitter() {
         owner = msg.sender;
 
-        LogCreation(msg.sender, _payer);
-    }
-
-    function setPayer(address _payer) public notClosed onlyOwner {
-        require(_payer != address(0));
-        require(_payer != payer);
-
-        payer = _payer;
-
-        LogPayerChanged(_payer);
+        LogCreation(msg.sender);
     }
 
     function close() public notClosed onlyOwner {
@@ -51,7 +36,6 @@ contract Splitter {
     function split(address firstBeneficiary, address secondBeneficiary) public notClosed payable {
         require(firstBeneficiary != address(0));
         require(secondBeneficiary != address(0));
-        require(msg.sender == payer);
         require(msg.value != 0);
 
         uint256 remainder = msg.value % 2;
