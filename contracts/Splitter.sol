@@ -1,4 +1,4 @@
-pragma solidity ^0.4.13;
+pragma solidity ^0.4.24;
 
 contract Splitter {
     event LogCreation(address indexed owner);
@@ -21,16 +21,16 @@ contract Splitter {
         _;
     }
 
-    function Splitter() {
+    constructor() public {
         owner = msg.sender;
 
-        LogCreation(msg.sender);
+        emit LogCreation(msg.sender);
     }
 
     function close() public notClosed onlyOwner {
         closed = true;
 
-        LogClosed(msg.sender);
+        emit LogClosed(msg.sender);
     }
 
     function split(address firstBeneficiary, address secondBeneficiary) public notClosed payable {
@@ -46,7 +46,7 @@ contract Splitter {
         balances[firstBeneficiary] += half;
         balances[secondBeneficiary] += half;
 
-        LogSplitted(firstBeneficiary, secondBeneficiary, half);
+        emit LogSplitted(firstBeneficiary, secondBeneficiary, half);
     }
 
     function withdraw() public notClosed {
@@ -58,10 +58,6 @@ contract Splitter {
         
         msg.sender.transfer(amount);
 
-        LogWithdraw(msg.sender, amount);   
-    }
-
-    function () public payable {
-        revert();
+        emit LogWithdraw(msg.sender, amount);   
     }
 }

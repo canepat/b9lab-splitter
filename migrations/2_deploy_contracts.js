@@ -9,5 +9,5 @@ module.exports = function(deployer, network, accounts) {
         owner = ""; // TODO: fill
     }
     
-    deployer.deploy(Splitter, payer, {from: owner, gas: gasLimit});
+    deployer.deploy(Splitter, {from: owner, gas: gasLimit});
 };

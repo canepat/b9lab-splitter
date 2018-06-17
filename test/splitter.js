@@ -29,9 +29,10 @@ web3.eth.makeSureAreUnlocked = require("../utils/makeSureAreUnlocked.js");
 const Splitter = artifacts.require("./Splitter.sol");
 
 contract('Splitter', function(accounts) {
-    const MAX_GAS = 2000000;
-    const TESTRPC_SLOW_DURATION = 1000;
-    const GETH_SLOW_DURATION = 15000;
+    const MAX_GAS               = 2000000;
+    const TESTRPC_SLOW_DURATION = 5000;
+    const GETH_SLOW_DURATION    = 60000;
+
     const AMOUNT = web3.toWei(0.009, 'ether');
 
     let isTestRPC, isGeth, slowDuration;
